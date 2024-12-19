@@ -18,12 +18,12 @@
         <repository>
             <id>rmjtromp</id>
             <name>releases</name>
-            <url>ftp://192.168.178.94/releases</url>
+            <url>ftp://192.168.178.94</url>
         </repository>
         <snapshotRepository>
             <id>rmjtromp</id>
             <name>snapshots</name>
-            <url>ftp://192.168.178.94/snapshots</url>
+            <url>ftp://192.168.178.94</url>
         </snapshotRepository>
     </distributionManagement>
 
