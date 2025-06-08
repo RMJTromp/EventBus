@@ -1,38 +1,76 @@
 package com.rmjtromp.events;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 @Log
-@NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+@UtilityClass
 public final class EventsManager {
 
-    @Getter
-    private static EventsManager instance = null;
-    private static final List<Object> queue = new ArrayList<>();
+    private static final List<Consumer<Class<? extends Event>>> firstListenerCallbacks = new ArrayList<>();
+    static final List<Consumer<Class<? extends Event>>> lastListenerCallbacks = new ArrayList<>();
 
-    public static void init() {
-        if(instance == null) instance = new EventsManager();
-        for(Object listener : queue) registerEvents(listener);
-        if(!queue.isEmpty()) queue.clear();
+    /**
+     * Register a callback that will be triggered when an event type gets its first listener
+     * @param callback Consumer that will be called with the event class when it gets its first listener
+     */
+    @NotNull
+    @Contract(pure = true)
+    public static Runnable onFirstListenerRegistered(@NotNull Consumer<Class<? extends Event>> callback) {
+        synchronized (firstListenerCallbacks) {
+            firstListenerCallbacks.add(callback);
+        }
+
+        return () -> {
+            synchronized (firstListenerCallbacks) {
+                firstListenerCallbacks.remove(callback);
+            }
+        };
+    }
+
+    /**
+     * Register a callback that will be triggered when an event type loses its last listener
+     * @param callback Consumer that will be called with the event class when it loses its last listener
+     */
+    @NotNull
+    @Contract(pure = true)
+    public static Runnable onLastListenerUnregistered(@NotNull Consumer<Class<? extends Event>> callback) {
+        synchronized(lastListenerCallbacks) {
+            lastListenerCallbacks.add(callback);
+        }
+
+        return () -> {
+            synchronized (lastListenerCallbacks) {
+                lastListenerCallbacks.remove(callback);
+            }
+        };
     }
 
     public static void registerEvents(@NotNull Object listener) {
-        if(instance != null) {
-            for (Map.Entry<Class<? extends Event>, Set<RegisteredListener>> entry : RegisteredListener.createRegisteredListeners(listener).entrySet()) {
-                Class<? extends Event> clazz = entry.getKey();
-                Set<RegisteredListener> value = entry.getValue();
-                HandlerList list = getEventListeners(clazz);
-                if(list != null) list.registerAll(value);
+        for (Map.Entry<Class<? extends Event>, Set<RegisteredListener>> entry : RegisteredListener.createRegisteredListeners(listener).entrySet()) {
+            Class<? extends Event> clazz = entry.getKey();
+            Set<RegisteredListener> value = entry.getValue();
+            HandlerList list = getEventListeners(clazz);
+            if(list != null) {
+                boolean wasEmpty = list.getRegisteredListeners().length == 0;
+                list.registerAll(value);
+                if(wasEmpty && list.getRegisteredListeners().length > 0) {
+                    synchronized(firstListenerCallbacks) {
+                        for(Consumer<Class<? extends Event>> callback : firstListenerCallbacks) {
+                            callback.accept(clazz);
+                        }
+                    }
+                }
             }
-        } else queue.add(listener);
+        }
     }
 
     public static void callEvent(@NotNull Event event) {
@@ -46,6 +84,7 @@ public final class EventsManager {
             } catch (Exception ex) {
                 log.warning("Could not pass event " + event.getEventName() + " to " + registration.getListener().getClass().getName());
                 log.throwing(EventsManager.class.getName(), "callEvent", ex);
+                ex.printStackTrace();
             }
         }
     }
