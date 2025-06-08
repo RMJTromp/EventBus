@@ -54,7 +54,7 @@ public final class EventBus {
         };
     }
 
-    public static void registerEvents(@NotNull Object listener) {
+    public static void register(@NotNull Object listener) {
         for (Map.Entry<Class<? extends Event>, Set<RegisteredListener>> entry : RegisteredListener.createRegisteredListeners(listener).entrySet()) {
             Class<? extends Event> clazz = entry.getKey();
             Set<RegisteredListener> value = entry.getValue();
