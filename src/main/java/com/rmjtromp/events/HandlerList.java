@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 
 /**
  * A list of event handlers, stored per-event. Based on lahwran's fevents.
@@ -131,8 +132,23 @@ public class HandlerList {
     public synchronized void unregister(@NotNull RegisteredListener listener) {
         if (handlerslots.get(listener.getPriority()).remove(listener)) {
             handlers = null;
+
+            if (getRegisteredListeners().length == 0) {
+                synchronized(EventsManager.lastListenerCallbacks) {
+                    for(Consumer<Class<? extends Event>> callback : EventsManager.lastListenerCallbacks) {
+                        // We need to find the event class for this handler list
+                        for(Entry<Class<? extends Event>, HandlerList> entry : Event.getHandlersMap().entrySet()) {
+                            if(entry.getValue() == this) {
+                                callback.accept(entry.getKey());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+
 
 //    /**
 //     * Remove a specific plugin's listeners from this handler
@@ -160,6 +176,7 @@ public class HandlerList {
     @Contract(pure = true)
     public synchronized void unregister(@NotNull Object listener) {
         boolean changed = false;
+        boolean wasNotEmpty = getRegisteredListeners().length > 0;
         for (List<RegisteredListener> list : handlerslots.values()) {
             for (ListIterator<RegisteredListener> i = list.listIterator(); i.hasNext();) {
                 if (i.next().getListener().equals(listener)) {
@@ -168,7 +185,21 @@ public class HandlerList {
                 }
             }
         }
-        if (changed) handlers = null;
+        if (changed) {
+            handlers = null;
+            if (wasNotEmpty && getRegisteredListeners().length == 0) {
+                synchronized(EventsManager.lastListenerCallbacks) {
+                    for(Consumer<Class<? extends Event>> callback : EventsManager.lastListenerCallbacks) {
+                        for(Entry<Class<? extends Event>, HandlerList> entry : Event.getHandlersMap().entrySet()) {
+                            if(entry.getValue() == this) {
+                                callback.accept(entry.getKey());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
