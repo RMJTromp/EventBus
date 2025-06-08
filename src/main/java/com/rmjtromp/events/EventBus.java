@@ -1,15 +1,12 @@
 package com.rmjtromp.events;
 
-import lombok.experimental.UtilityClass;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.java.Log;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -92,8 +89,8 @@ public final class EventBus {
      *
      * @param event The event to be posted to the registered listeners.
      */
-    public static void post(@NotNull Event event) {
-        HandlerList handlers = event.getHandlers();
+    @NotNull
+    public <T extends Event> T post(@NotNull T event) {
         HandlerList handlers = handlersMap.getOrDefault(event.getClass(), new HandlerList());
         RegisteredListener[] listeners = handlers.getRegisteredListeners();
 
@@ -106,6 +103,7 @@ public final class EventBus {
                 log.throwing(EventBus.class.getName(), "callEvent", ex);
             }
         }
+        return event;
     }
 
     @NotNull
