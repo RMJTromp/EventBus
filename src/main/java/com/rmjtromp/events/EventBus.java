@@ -73,7 +73,7 @@ public final class EventBus {
         }
     }
 
-    public static void callEvent(@NotNull Event event) {
+    public static void post(@NotNull Event event) {
         HandlerList handlers = event.getHandlers();
         RegisteredListener[] listeners = handlers.getRegisteredListeners();
 
