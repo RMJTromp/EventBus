@@ -91,11 +91,6 @@ public abstract class Event {
         return called;
     }
 
-    public void call() {
-        if(!called)
-            EventsManager.callEvent(this);
-    }
-
     public enum Result {
 
         /**
