@@ -83,29 +83,6 @@ public class RegisteredListener {
             method.setAccessible(true);
             Set<RegisteredListener> eventSet = ret.computeIfAbsent(eventClass, k -> new HashSet<>());
 
-//            for (Class<?> clazz = eventClass; Event.class.isAssignableFrom(clazz); clazz = clazz.getSuperclass()) {
-//                // This loop checks for extending deprecated events
-//                if (clazz.getAnnotation(Deprecated.class) != null) {
-//                    Warning warning = clazz.getAnnotation(Warning.class);
-//                    WarningState warningState = server.getWarningState();
-//                    if (!warningState.printFor(warning)) {
-//                        break;
-//                    }
-//                    plugin.getLogger().log(
-//                            Level.WARNING,
-//                            String.format(
-//                                    "\"%s\" has registered a listener for %s on method \"%s\", but the event is Deprecated." +
-//                                    " \"%s\"; please notify the authors %s.",
-//                                    plugin.getDescription().getFullName(),
-//                                    clazz.getName(),
-//                                    method.toGenericString(),
-//                                    (warning != null && warning.reason().length() != 0) ? warning.reason() : "Server performance will be affected",
-//                                    Arrays.toString(plugin.getDescription().getAuthors().toArray())),
-//                            warningState == WarningState.ON ? new AuthorNagException(null) : null);
-//                    break;
-//                }
-//            }
-
             EventExecutor executor = (listener1, event) -> {
                 try {
                     if (!eventClass.isAssignableFrom(event.getClass())) {
