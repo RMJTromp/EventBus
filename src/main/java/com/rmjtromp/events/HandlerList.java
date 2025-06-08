@@ -59,19 +59,6 @@ public class HandlerList {
         }
     }
 
-//    /**
-//     * Unregister a specific plugin's listeners from all handler lists.
-//     *
-//     * @param plugin plugin to unregister
-//     */
-//    public static void unregisterAll(Plugin plugin) {
-//        synchronized (allLists) {
-//            for (HandlerList h : allLists) {
-//                h.unregister(plugin);
-//            }
-//        }
-//    }
-
     /**
      * Unregister a specific listener from all handler lists.
      *
@@ -149,25 +136,6 @@ public class HandlerList {
         }
     }
 
-
-//    /**
-//     * Remove a specific plugin's listeners from this handler
-//     *
-//     * @param plugin plugin to remove
-//     */
-//    public synchronized void unregister(Plugin plugin) {
-//        boolean changed = false;
-//        for (List<RegisteredListener> list : handlerslots.values()) {
-//            for (ListIterator<RegisteredListener> i = list.listIterator(); i.hasNext();) {
-//                if (i.next().getPlugin().equals(plugin)) {
-//                    i.remove();
-//                    changed = true;
-//                }
-//            }
-//        }
-//        if (changed) handlers = null;
-//    }
-
     /**
      * Remove a specific listener from this handler
      *
@@ -226,31 +194,6 @@ public class HandlerList {
         while ((handlers = this.handlers) == null) bake(); // This prevents fringe cases of returning null
         return handlers;
     }
-
-//    /**
-//     * Get a specific plugin's registered listeners associated with this
-//     * handler list
-//     *
-//     * @param plugin the plugin to get the listeners of
-//     * @return the list of registered listeners
-//     */
-//    public static ArrayList<RegisteredListener> getRegisteredListeners(Plugin plugin) {
-//        ArrayList<RegisteredListener> listeners = new ArrayList<RegisteredListener>();
-//        synchronized (allLists) {
-//            for (HandlerList h : allLists) {
-//                synchronized (h) {
-//                    for (List<RegisteredListener> list : h.handlerslots.values()) {
-//                        for (RegisteredListener listener : list) {
-//                            if (listener.getPlugin().equals(plugin)) {
-//                                listeners.add(listener);
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        return listeners;
-//    }
 
     /**
      * Get a list of all handler lists for every event type
