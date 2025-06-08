@@ -9,14 +9,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 @Log
-@UtilityClass
 public final class EventBus {
 
-    private static final List<Consumer<Class<? extends Event>>> firstListenerCallbacks = new ArrayList<>();
-    static final List<Consumer<Class<? extends Event>>> lastListenerCallbacks = new ArrayList<>();
+    private final List<Consumer<Class<? extends Event>>> firstListenerCallbacks = Collections.synchronizedList(new ArrayList<>());
+    private final List<Consumer<Class<? extends Event>>> lastListenerCallbacks = Collections.synchronizedList(new ArrayList<>());
+    private final ConcurrentHashMap<Class<? extends Event>, HandlerList> handlersMap = new ConcurrentHashMap<>();
 
     /**
      * Register a callback that will be triggered when an event type gets its first listener
@@ -24,16 +26,9 @@ public final class EventBus {
      */
     @NotNull
     @Contract(pure = true)
-    public static Runnable onFirstListenerRegistered(@NotNull Consumer<Class<? extends Event>> callback) {
-        synchronized (firstListenerCallbacks) {
-            firstListenerCallbacks.add(callback);
-        }
-
-        return () -> {
-            synchronized (firstListenerCallbacks) {
-                firstListenerCallbacks.remove(callback);
-            }
-        };
+    public Runnable onFirstListenerRegistered(@NotNull Consumer<Class<? extends Event>> callback) {
+        firstListenerCallbacks.add(callback);
+        return () -> firstListenerCallbacks.remove(callback);
     }
 
     /**
@@ -42,16 +37,9 @@ public final class EventBus {
      */
     @NotNull
     @Contract(pure = true)
-    public static Runnable onLastListenerUnregistered(@NotNull Consumer<Class<? extends Event>> callback) {
-        synchronized(lastListenerCallbacks) {
-            lastListenerCallbacks.add(callback);
-        }
-
-        return () -> {
-            synchronized (lastListenerCallbacks) {
-                lastListenerCallbacks.remove(callback);
-            }
-        };
+    public Runnable onLastListenerUnregistered(@NotNull Consumer<Class<? extends Event>> callback) {
+        lastListenerCallbacks.add(callback);
+        return () -> lastListenerCallbacks.remove(callback);
     }
 
     /**
@@ -60,19 +48,36 @@ public final class EventBus {
      *
      * @param listener The object containing methods annotated for handling events.
      */
-    public static void register(@NotNull Object listener) {
+    public void register(@NotNull Object listener) {
         for (Map.Entry<Class<? extends Event>, Set<RegisteredListener>> entry : RegisteredListener.createRegisteredListeners(listener).entrySet()) {
             Class<? extends Event> clazz = entry.getKey();
             Set<RegisteredListener> value = entry.getValue();
-            HandlerList list = getEventListeners(clazz);
-            if(list != null) {
-                boolean wasEmpty = list.getRegisteredListeners().length == 0;
-                list.registerAll(value);
-                if(wasEmpty && list.getRegisteredListeners().length > 0) {
-                    synchronized(firstListenerCallbacks) {
-                        for(Consumer<Class<? extends Event>> callback : firstListenerCallbacks) {
-                            callback.accept(clazz);
-                        }
+            HandlerList list = handlersMap.computeIfAbsent(clazz, k -> new HandlerList());
+            boolean wasEmpty = list.getRegisteredListeners().length == 0;
+            list.registerAll(value);
+            if(wasEmpty && list.getRegisteredListeners().length > 0) {
+                List<Consumer<Class<? extends Event>>> callbacks = new ArrayList<>(firstListenerCallbacks);
+                for(Consumer<Class<? extends Event>> callback : callbacks) {
+                    callback.accept(clazz);
+                }
+            }
+        }
+    }
+
+    public void unregister(@NotNull Object listener) {
+        for (Map.Entry<Class<? extends Event>, HandlerList> entry : handlersMap.entrySet()) {
+            HandlerList handlerList = entry.getValue();
+            boolean wasNotEmpty = handlerList.getRegisteredListeners().length > 0;
+
+            if (handlerList.unregister(listener)) {
+                boolean isEmpty = handlerList.getRegisteredListeners().length == 0;
+                //noinspection ConstantValue
+                if (wasNotEmpty && isEmpty) {
+                    Class<? extends Event> eventClass = entry.getKey();
+                    // Create a copy of the list to avoid potential ConcurrentModificationException
+                    List<Consumer<Class<? extends Event>>> callbacks = new ArrayList<>(lastListenerCallbacks);
+                    for (Consumer<Class<? extends Event>> callback : callbacks) {
+                        callback.accept(eventClass);
                     }
                 }
             }
@@ -89,6 +94,7 @@ public final class EventBus {
      */
     public static void post(@NotNull Event event) {
         HandlerList handlers = event.getHandlers();
+        HandlerList handlers = handlersMap.getOrDefault(event.getClass(), new HandlerList());
         RegisteredListener[] listeners = handlers.getRegisteredListeners();
 
         event.called = true;
@@ -102,21 +108,35 @@ public final class EventBus {
         }
     }
 
-    /**
-     * Retrieves or creates the {@link HandlerList} for the specified event type.
-     * This method ensures that each event type has a unique {@link HandlerList}
-     * associated with it, which manages the handlers for that particular type of event.
-     *
-     * @param type The class of the event for which the {@link HandlerList} is needed.
-     *             Must not be null.
-     * @return The {@link HandlerList} associated with the provided event type, or null
-     *         if an exception occurs during the retrieval or creation of the list.
-     */
-    private static HandlerList getEventListeners(@NotNull Class<? extends Event> type) {
-        try {
-            return Event.getHandlersMap().computeIfAbsent(type, k -> new HandlerList());
-        } catch (Exception e) {/* ignore */}
-        return null;
+    @NotNull
+    @Contract(pure = true)
+    public <T extends Event> EventPromise<T> postAsync(@NotNull T event) {
+        EventPromise<T> promise = new EventPromise<>(event);
+        event.async = true;
+        CompletableFuture
+            .runAsync(() -> post(event))
+            .thenAccept(v -> promise.markResolved());
+        return promise;
+    }
+
+    @RequiredArgsConstructor
+    public static class EventPromise<T extends Event> {
+        private final T event;
+        private volatile boolean resolved = false;
+        private volatile Consumer<T> onResolveCallback = null;
+
+        public synchronized void then(@NotNull Consumer<T> callback) {
+            onResolveCallback = callback;
+            if (resolved) callback.accept(event);
+        }
+
+        private synchronized void markResolved() {
+            resolved = true;
+            if (onResolveCallback != null)
+                onResolveCallback.accept(event);
+        }
+
+
     }
 
 }

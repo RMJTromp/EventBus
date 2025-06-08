@@ -1,44 +1,18 @@
 package com.rmjtromp.events;
 
-import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.Contract;
-
-import java.util.HashMap;
 
 /**
  * Represents an event.
  */
+@NoArgsConstructor
 public abstract class Event {
 
-    @Getter
-    private static final HashMap<Class<? extends Event>, HandlerList> handlersMap = new HashMap<>();
-
     private String name;
-    private final boolean async;
+    boolean async = false;
 
     boolean called = false;
-
-    /**
-     * The default constructor is defined for cleaner code. This constructor
-     * assumes the event is synchronous.
-     */
-    public Event() {
-        this(false);
-    }
-
-    /**
-     * This constructor is used to explicitly declare an event as synchronous
-     * or asynchronous.
-     *
-     * @param isAsync true indicates the event will fire asynchronously, false
-     *     by default from default constructor
-     */
-    public Event(boolean isAsync) {
-        this.async = isAsync;
-
-        if(!handlersMap.containsKey(this.getClass()))
-            handlersMap.put(this.getClass(), new HandlerList());
-    }
 
     /**
      * Convenience method for providing a user-friendly identifier. By
@@ -53,11 +27,6 @@ public abstract class Event {
             name = getClass().getSimpleName();
         }
         return name;
-    }
-
-    @Contract(pure = true)
-    public HandlerList getHandlers() {
-        return handlersMap.computeIfAbsent(this.getClass(), k -> new HandlerList());
     }
 
     /**

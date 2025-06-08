@@ -5,12 +5,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
 
 /**
  * A list of event handlers, stored per-event. Based on lahwran's fevents.
  */
-public class HandlerList {
+class HandlerList {
 
     /**
      * Handler array. This field being an array is the key to this system's
@@ -26,64 +25,14 @@ public class HandlerList {
     private final EnumMap<EventPriority, ArrayList<RegisteredListener>> handlerslots;
 
     /**
-     * List of all HandlerLists which have been created, for use in bakeAll()
-     */
-    private static final ArrayList<HandlerList> allLists = new ArrayList<>();
-
-    /**
-     * Bake all handler lists. Best used just after all normal event
-     * registration is complete, ie just after all plugins are loaded if
-     * you're using fevents in a plugin system.
-     */
-    public static void bakeAll() {
-        synchronized (allLists) {
-            for (HandlerList h : allLists) {
-                h.bake();
-            }
-        }
-    }
-
-    /**
-     * Unregister all listeners from all handler lists.
-     */
-    public static void unregisterAll() {
-        synchronized (allLists) {
-            for (HandlerList h : allLists) {
-                synchronized (h) {
-                    for (List<RegisteredListener> list : h.handlerslots.values()) {
-                        list.clear();
-                    }
-                    h.handlers = null;
-                }
-            }
-        }
-    }
-
-    /**
-     * Unregister a specific listener from all handler lists.
-     *
-     * @param listener listener to unregister
-     */
-    public static void unregisterAll(@NotNull Object listener) {
-        synchronized (allLists) {
-            for (HandlerList h : allLists) {
-                h.unregister(listener);
-            }
-        }
-    }
-
-    /**
      * Create a new handler list and initialize using EventPriority.
      * <p>
      * The HandlerList is then added to meta-list for use in bakeAll()
      */
-    public HandlerList() {
+    HandlerList() {
         handlerslots = new EnumMap<>(EventPriority.class);
         for (EventPriority o : EventPriority.values()) {
             handlerslots.put(o, new ArrayList<>());
-        }
-        synchronized (allLists) {
-            allLists.add(this);
         }
     }
 
@@ -111,63 +60,24 @@ public class HandlerList {
     }
 
     /**
-     * Remove a listener from a specific order slot
-     *
-     * @param listener listener to remove
-     */
-    @Contract(pure = true)
-    public synchronized void unregister(@NotNull RegisteredListener listener) {
-        if (handlerslots.get(listener.getPriority()).remove(listener)) {
-            handlers = null;
-
-            if (getRegisteredListeners().length == 0) {
-                synchronized(EventBus.lastListenerCallbacks) {
-                    for(Consumer<Class<? extends Event>> callback : EventBus.lastListenerCallbacks) {
-                        // We need to find the event class for this handler list
-                        for(Entry<Class<? extends Event>, HandlerList> entry : Event.getHandlersMap().entrySet()) {
-                            if(entry.getValue() == this) {
-                                callback.accept(entry.getKey());
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * Remove a specific listener from this handler
      *
      * @param listener listener to remove
+     * @return Whether the listener was removed from any of the slots
      */
     @Contract(pure = true)
-    public synchronized void unregister(@NotNull Object listener) {
+    public synchronized boolean unregister(@NotNull Object listener) {
         boolean changed = false;
-        boolean wasNotEmpty = getRegisteredListeners().length > 0;
         for (List<RegisteredListener> list : handlerslots.values()) {
             for (ListIterator<RegisteredListener> i = list.listIterator(); i.hasNext();) {
                 if (i.next().getListener().equals(listener)) {
                     i.remove();
                     changed = true;
+                    handlers = null;
                 }
             }
         }
-        if (changed) {
-            handlers = null;
-            if (wasNotEmpty && getRegisteredListeners().length == 0) {
-                synchronized(EventBus.lastListenerCallbacks) {
-                    for(Consumer<Class<? extends Event>> callback : EventBus.lastListenerCallbacks) {
-                        for(Entry<Class<? extends Event>, HandlerList> entry : Event.getHandlersMap().entrySet()) {
-                            if(entry.getValue() == this) {
-                                callback.accept(entry.getKey());
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        return changed;
     }
 
     /**
@@ -176,7 +86,7 @@ public class HandlerList {
     @Contract(pure = true)
     public synchronized void bake() {
         if (handlers != null) return; // don't re-bake when still valid
-        List<RegisteredListener> entries = new ArrayList<RegisteredListener>();
+        List<RegisteredListener> entries = new ArrayList<>();
         for (Entry<EventPriority, ArrayList<RegisteredListener>> entry : handlerslots.entrySet()) {
             entries.addAll(entry.getValue());
         }
@@ -195,16 +105,4 @@ public class HandlerList {
         return handlers;
     }
 
-    /**
-     * Get a list of all handler lists for every event type
-     *
-     * @return the list of all handler lists
-     */
-    @SuppressWarnings("unchecked")
-    @Contract(pure = true)
-    public static ArrayList<HandlerList> getHandlerLists() {
-        synchronized (allLists) {
-            return (ArrayList<HandlerList>) allLists.clone();
-        }
-    }
 }
