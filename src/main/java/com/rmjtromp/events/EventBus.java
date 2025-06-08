@@ -61,6 +61,13 @@ public final class EventBus {
         }
     }
 
+    /**
+     * Unregisters a listener from the event handling system. This removes the listener
+     * from all events it was registered to, and if it was the last listener for an event,
+     * it will trigger the last listener unregistered callbacks.
+     *
+     * @param listener The object that was previously registered to handle events.
+     */
     public void unregister(@NotNull Object listener) {
         for (Map.Entry<Class<? extends Event>, HandlerList> entry : handlersMap.entrySet()) {
             HandlerList handlerList = entry.getValue();
@@ -106,6 +113,15 @@ public final class EventBus {
         return event;
     }
 
+    /**
+     * Posts an event asynchronously. The event will be posted in a separate thread,
+     * and the method returns an EventPromise that can be used to handle the result
+     * of the event posting.
+     *
+     * @param event The event to be posted asynchronously.
+     * @param <T>   The type of the event.
+     * @return An EventPromise that can be used to handle the result of the event posting.
+     */
     @NotNull
     @Contract(pure = true)
     public <T extends Event> EventPromise<T> postAsync(@NotNull T event) {
@@ -123,6 +139,14 @@ public final class EventBus {
         private volatile boolean resolved = false;
         private volatile Consumer<T> onResolveCallback = null;
 
+
+        /**
+         * Registers a callback that will be executed when the event associated with this
+         * promise is resolved. If the event is already resolved at the time of registering,
+         * the callback is immediately executed with the event.
+         *
+         * @param callback the callback function to be executed when the event is resolved
+         */
         public synchronized void then(@NotNull Consumer<T> callback) {
             onResolveCallback = callback;
             if (resolved) callback.accept(event);
