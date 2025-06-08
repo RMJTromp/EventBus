@@ -5,7 +5,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Stores relevant information for plugin listeners
@@ -52,18 +55,21 @@ public class RegisteredListener {
     }
 
     @NotNull
+    private static Set<Method> getMethodsRecursively(@NotNull Class<?> clazz) {
+        Set<Method> methods = new HashSet<>();
+        while (clazz != null) {
+            for (Method method : clazz.getDeclaredMethods())
+                if(method.isAnnotationPresent(EventHandler.class)) methods.add(method);
+
+            clazz = clazz.getSuperclass();
+        }
+        return methods;
+    }
+
+    @NotNull
     public static Map<Class<? extends Event>, Set<RegisteredListener>> createRegisteredListeners(@NotNull Object listener) {
         Map<Class<? extends Event>, Set<RegisteredListener>> ret = new HashMap<>();
-        Set<Method> methods;
-        try {
-            Method[] publicMethods = listener.getClass().getMethods();
-            methods = new HashSet<>(publicMethods.length, Float.MAX_VALUE);
-            methods.addAll(Arrays.asList(publicMethods));
-            methods.addAll(Arrays.asList(listener.getClass().getDeclaredMethods()));
-        } catch (NoClassDefFoundError e) {
-            System.out.print("Failed to register events for " + listener.getClass() + " because " + e.getMessage() + " does not exist.");
-            return ret;
-        }
+        Set<Method> methods = getMethodsRecursively(listener.getClass());
 
         for (final Method method : methods) {
             final EventHandler eh = method.getAnnotation(EventHandler.class);
