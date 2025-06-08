@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 @Log
 @UtilityClass
-public final class EventsManager {
+public final class EventBus {
 
     private static final List<Consumer<Class<? extends Event>>> firstListenerCallbacks = new ArrayList<>();
     static final List<Consumer<Class<? extends Event>>> lastListenerCallbacks = new ArrayList<>();
@@ -83,7 +83,7 @@ public final class EventsManager {
                 registration.callEvent(event);
             } catch (Exception ex) {
                 log.warning("Could not pass event " + event.getEventName() + " to " + registration.getListener().getClass().getName());
-                log.throwing(EventsManager.class.getName(), "callEvent", ex);
+                log.throwing(EventBus.class.getName(), "callEvent", ex);
                 ex.printStackTrace();
             }
         }

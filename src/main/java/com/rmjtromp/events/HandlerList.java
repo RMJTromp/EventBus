@@ -134,8 +134,8 @@ public class HandlerList {
             handlers = null;
 
             if (getRegisteredListeners().length == 0) {
-                synchronized(EventsManager.lastListenerCallbacks) {
-                    for(Consumer<Class<? extends Event>> callback : EventsManager.lastListenerCallbacks) {
+                synchronized(EventBus.lastListenerCallbacks) {
+                    for(Consumer<Class<? extends Event>> callback : EventBus.lastListenerCallbacks) {
                         // We need to find the event class for this handler list
                         for(Entry<Class<? extends Event>, HandlerList> entry : Event.getHandlersMap().entrySet()) {
                             if(entry.getValue() == this) {
@@ -188,8 +188,8 @@ public class HandlerList {
         if (changed) {
             handlers = null;
             if (wasNotEmpty && getRegisteredListeners().length == 0) {
-                synchronized(EventsManager.lastListenerCallbacks) {
-                    for(Consumer<Class<? extends Event>> callback : EventsManager.lastListenerCallbacks) {
+                synchronized(EventBus.lastListenerCallbacks) {
+                    for(Consumer<Class<? extends Event>> callback : EventBus.lastListenerCallbacks) {
                         for(Entry<Class<? extends Event>, HandlerList> entry : Event.getHandlersMap().entrySet()) {
                             if(entry.getValue() == this) {
                                 callback.accept(entry.getKey());
