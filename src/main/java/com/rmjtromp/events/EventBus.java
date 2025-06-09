@@ -5,17 +5,27 @@ import lombok.extern.java.Log;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 @Log
-public final class EventBus {
+public final class EventBus implements Closeable {
 
     private final List<Consumer<Class<? extends Event>>> firstListenerCallbacks = Collections.synchronizedList(new ArrayList<>());
     private final List<Consumer<Class<? extends Event>>> lastListenerCallbacks = Collections.synchronizedList(new ArrayList<>());
     private final ConcurrentHashMap<Class<? extends Event>, HandlerList> handlersMap = new ConcurrentHashMap<>();
+    private final ExecutorService asyncExecutor = Executors.newFixedThreadPool(
+        Runtime.getRuntime().availableProcessors(),
+        r -> {
+            Thread t = new Thread(r, "EventBus-Async");
+            t.setDaemon(true);
+            return t;
+        }
+    );
+
 
     /**
      * Register a callback that will be triggered when an event type gets its first listener
@@ -128,7 +138,7 @@ public final class EventBus {
         EventPromise<T> promise = new EventPromise<>(event);
         event.async = true;
         CompletableFuture
-            .runAsync(() -> post(event))
+            .runAsync(() -> post(event), asyncExecutor)
             .thenAccept(v -> promise.markResolved());
         return promise;
     }
@@ -160,6 +170,18 @@ public final class EventBus {
         return handlersMap.getOrDefault(eventClass, new HandlerList());
     }
 
+    @Override
+    public void close() {
+        asyncExecutor.shutdown();
+        try {
+            if (!asyncExecutor.awaitTermination(5, TimeUnit.SECONDS))
+                asyncExecutor.shutdownNow();
+        } catch (InterruptedException e) {
+            asyncExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
     @RequiredArgsConstructor
     public static class EventPromise<T extends Event> {
         private final T event;
@@ -184,7 +206,6 @@ public final class EventBus {
             if (onResolveCallback != null)
                 onResolveCallback.accept(event);
         }
-
 
     }
 
