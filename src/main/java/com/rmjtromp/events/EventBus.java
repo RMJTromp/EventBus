@@ -133,6 +133,33 @@ public final class EventBus {
         return promise;
     }
 
+    /**
+     * Retrieves a map containing all event types and their corresponding handler lists.
+     * This map associates each event class with its respective {@link HandlerList}.
+     *
+     * @return A new {@link HashMap} containing event classes as keys and their associated
+     * handler lists as values.
+     */
+    @NotNull
+    @Contract(pure = true)
+    public HashMap<Class<? extends Event>, HandlerList> getHandlerLists() {
+        return new HashMap<>(handlersMap);
+    }
+
+    /**
+     * Retrieves the handler list associated with a specific event class. If no handler list
+     * is associated with the given event class, a new empty HandlerList is returned.
+     *
+     * @param eventClass the class of the event for which the handler list is being retrieved
+     * @return the handler list associated with the specified event class, or a new empty HandlerList
+     *         if none exists
+     */
+    @NotNull
+    @Contract(pure = true)
+    public HandlerList getHandlerList(@NotNull Class<? extends Event> eventClass) {
+        return handlersMap.getOrDefault(eventClass, new HandlerList());
+    }
+
     @RequiredArgsConstructor
     public static class EventPromise<T extends Event> {
         private final T event;
